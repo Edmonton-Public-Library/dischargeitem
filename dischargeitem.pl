@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Thu Jul 3 11:15:37 MDT 2014
 # Rev:  
+#          0.2 - Updated documentation (no -t switch). 
 #          0.1 - Removing restriction to require item ids in -i file. 
 #          0.0 - Dev. 
 #
@@ -56,7 +57,7 @@ sub trim($)
 	return $string;
 }
 
-my $VERSION        = qq{0.1};
+my $VERSION        = qq{0.2};
 # my $HOME_DIR       = qq{.}; # Test
 my $HOME_DIR       = qq{/s/sirsi/Unicorn/EPLwork/Dischargeitem};
 my $REQUEST_FILE   = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
@@ -86,7 +87,7 @@ This script discharges items received on standard in.
 example: $0 -x
 example: cat items.lst | $0 -U
 example: echo 31221012345678 | $0
-example: echo 31221012345678 | $0 -t90 -U
+example: echo 31221012345678 | $0 -U
 Version: $VERSION
 EOF
     exit;
@@ -97,7 +98,7 @@ EOF
 # return: 
 sub init
 {
-    my $opt_string = 't:Ux';
+    my $opt_string = 'Ux';
     getopts( "$opt_string", \%opt ) or usage();
     usage() if ( $opt{'x'} );
 }
