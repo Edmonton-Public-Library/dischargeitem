@@ -31,6 +31,7 @@
 #          0.2 - Updated documentation (no -t switch). 
 #          0.1 - Removing restriction to require item ids in -i file. 
 #          0.0 - Dev. 
+#Dependencies: pipe.pl
 #
 ####################################################
 
@@ -47,18 +48,6 @@ $ENV{'PATH'}  = qq{:/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/usr/bin:/us
 $ENV{'UPATH'} = qq{/s/sirsi/Unicorn/Config/upath};
 ###############################################
 
-# Trim function to remove whitespace from the start and end of the string.
-# param:  string to trim.
-# return: string without leading or trailing spaces.
-sub trim($)
-{
-	my $string = shift;
-	$string =~ s/^\s+//;
-	$string =~ s/\s+$//;
-	$string =~ s/(\s+|\|)//g;
-	return $string;
-}
-
 my $VERSION        = qq{0.4};
 # my $HOME_DIR       = qq{.}; # Test
 my $HOME_DIR       = qq{/s/sirsi/Unicorn/EPLwork/Dischargeitem};
@@ -66,11 +55,11 @@ my $REQUEST_FILE   = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
 my $RESPONSE_FILE  = qq{$HOME_DIR/D_ITEM_TXRS.log};
 my $TRX_NUM        = 1; # Transaction number ranges from 1-99, then restarts
 my $API_LINE_COUNT = 0; # for reporting
-my $STATION        = "EPLWHP"; # station performing the transactions, used in history record.
+my $STATION        = "EPLMNA"; # station performing the transactions, used in history record.
 my $DATE           = `date +%Y%m%d`;
-$DATE              = trim($DATE);
+$DATE              = chomp $DATE;
 my $TIME           = `date +%H%M%S`;
-$TIME              = trim($TIME);
+$TIME              = chomp $TIME;
 
 #
 # Message about this program and how to use it.
@@ -190,13 +179,13 @@ open LOG, ">$RESPONSE_FILE" or die "Error opening '$RESPONSE_FILE': $!\n";
 my $today = getHistoryFormattedDate( $DATE );
 while (<>)
 {
-	my $itemId = $_;
-	chomp $itemId;
-	$itemId = trim( $itemId );
+	# Clean the line of additional piped values if any. 
+	my $itemId = `echo "$_" | pipe.pl -o"c0" -t"c0"`; 
 	print LOG "discharging: $itemId\n";
 	# Item id always comes with a lot of white space on the end from the API so trim it off now.
 	# The next two commands discharges the item from the account.
 	print API dischargeItem( $itemId, $today );
+	$API_LINE_COUNT++;
 	if ( $opt{'U'} )
 	{
 		# For some unexplained reason the station library in Hist shows the specified library but selitem reports no change. 
