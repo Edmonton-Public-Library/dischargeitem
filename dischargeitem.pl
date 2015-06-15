@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Thu Jul 3 11:15:37 MDT 2014
 # Rev:  
+#          0.4 - Bug shows station library in history but items don't show in selitem. Fix with edititem. 
 #          0.3 - Add -s switch to change station library for default of EPLMNA. 
 #          0.2 - Updated documentation (no -t switch). 
 #          0.1 - Removing restriction to require item ids in -i file. 
@@ -58,7 +59,7 @@ sub trim($)
 	return $string;
 }
 
-my $VERSION        = qq{0.3};
+my $VERSION        = qq{0.4};
 # my $HOME_DIR       = qq{.}; # Test
 my $HOME_DIR       = qq{/s/sirsi/Unicorn/EPLwork/Dischargeitem};
 my $REQUEST_FILE   = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
@@ -196,6 +197,12 @@ while (<>)
 	# Item id always comes with a lot of white space on the end from the API so trim it off now.
 	# The next two commands discharges the item from the account.
 	print API dischargeItem( $itemId, $today );
+	if ( $opt{'U'} )
+	{
+		# For some unexplained reason the station library in Hist shows the specified library but selitem reports no change. 
+		# Reset them now edititem -y"EPLWHP"
+		`echo "$itemId" | selitem -iB | edititem -y"$STATION"`;
+	}
 }
 close LOG;
 close API;
