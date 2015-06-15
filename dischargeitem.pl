@@ -26,6 +26,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Thu Jul 3 11:15:37 MDT 2014
 # Rev:  
+#          0.3 - Add -s switch to change station library for default of EPLMNA. 
 #          0.2 - Updated documentation (no -t switch). 
 #          0.1 - Removing restriction to require item ids in -i file. 
 #          0.0 - Dev. 
@@ -57,14 +58,14 @@ sub trim($)
 	return $string;
 }
 
-my $VERSION        = qq{0.2};
+my $VERSION        = qq{0.3};
 # my $HOME_DIR       = qq{.}; # Test
 my $HOME_DIR       = qq{/s/sirsi/Unicorn/EPLwork/Dischargeitem};
 my $REQUEST_FILE   = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
 my $RESPONSE_FILE  = qq{$HOME_DIR/D_ITEM_TXRS.log};
 my $TRX_NUM        = 1; # Transaction number ranges from 1-99, then restarts
 my $API_LINE_COUNT = 0; # for reporting
-my $STATION        = "EPLMNA"; # station performing the transactions, used in history record.
+my $STATION        = "EPLWHP"; # station performing the transactions, used in history record.
 my $DATE           = `date +%Y%m%d`;
 $DATE              = trim($DATE);
 my $TIME           = `date +%H%M%S`;
@@ -77,17 +78,19 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: echo <itemID> | $0 [-Ux]
+	usage: echo <itemID> | $0 [-Ux] [-s<STATION>]
 Usage notes for $0.pl.
-This script discharges items received on standard in.
+This script discharges items received on standard in as bar codes.
 
- -U: Actually do the update, otherwise it will output the files it would have run with APIserver.
- -x: This (help) message.
+ -s[LIB]: Change the station library from the default 'EPLMNA'.
+ -U     : Actually do the update, otherwise it will output the files it would have run with APIserver.
+ -x     : This (help) message.
 
 example: $0 -x
 example: cat items.lst | $0 -U
 example: echo 31221012345678 | $0
 example: echo 31221012345678 | $0 -U
+example: echo 31221012345678 | $0 -s"EPLWHP" -U
 Version: $VERSION
 EOF
     exit;
@@ -98,9 +101,10 @@ EOF
 # return: 
 sub init
 {
-    my $opt_string = 'Ux';
+    my $opt_string = 's:Ux';
     getopts( "$opt_string", \%opt ) or usage();
     usage() if ( $opt{'x'} );
+	$STATION = $opt{'s'} if ( $opt{'s'} );
 }
 
 # This function checks items off of a card via API server transactions.
@@ -185,9 +189,11 @@ open LOG, ">$RESPONSE_FILE" or die "Error opening '$RESPONSE_FILE': $!\n";
 my $today = getHistoryFormattedDate( $DATE );
 while (<>)
 {
-	print LOG "discharging: $_\n";
+	my $itemId = $_;
+	chomp $itemId;
+	$itemId = trim( $itemId );
+	print LOG "discharging: $itemId\n";
 	# Item id always comes with a lot of white space on the end from the API so trim it off now.
-	my $itemId = trim( $_ );
 	# The next two commands discharges the item from the account.
 	print API dischargeItem( $itemId, $today );
 }
