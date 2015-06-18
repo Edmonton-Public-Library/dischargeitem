@@ -26,6 +26,7 @@
 ####################################################
 # Change comment below for appropriate server.
 PRODUCTION_SERVER=eplapp.library.ualberta.ca
+TEST_SERVER=edpl-t.library.ualberta.ca
 USER=sirsi
 REMOTE=/s/sirsi/Unicorn/Bincustom/
 LOCAL=~/projects/dischargeitem/
@@ -35,6 +36,7 @@ ARGS=-x
 test:
 	perl -c ${APP}
 production: test
+	scp ${LOCAL}${APP} ${USER}@${TEST_SERVER}:${REMOTE}
 	scp ${LOCAL}${APP} ${USER}@${PRODUCTION_SERVER}:${REMOTE}
 	ssh ${USER}@${PRODUCTION_SERVER} '${REMOTE}${APP} ${ARGS}'
 

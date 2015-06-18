@@ -26,12 +26,13 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Thu Jul 3 11:15:37 MDT 2014
 # Rev:  
+#          0.5 - Fix with edititem, requires item by item apiserver. TODO fix. 
 #          0.4 - Bug shows station library in history but items don't show in selitem. Fix with edititem. 
 #          0.3 - Add -s switch to change station library for default of EPLMNA. 
 #          0.2 - Updated documentation (no -t switch). 
 #          0.1 - Removing restriction to require item ids in -i file. 
 #          0.0 - Dev. 
-#Dependencies: pipe.pl
+#Dependencies: pipe.pl  
 #
 ####################################################
 
@@ -48,7 +49,7 @@ $ENV{'PATH'}  = qq{:/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/usr/bin:/us
 $ENV{'UPATH'} = qq{/s/sirsi/Unicorn/Config/upath};
 ###############################################
 
-my $VERSION        = qq{0.4};
+my $VERSION        = qq{0.5};
 # my $HOME_DIR       = qq{.}; # Test
 my $HOME_DIR       = qq{/s/sirsi/Unicorn/EPLwork/Dischargeitem};
 my $REQUEST_FILE   = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
@@ -57,9 +58,9 @@ my $TRX_NUM        = 1; # Transaction number ranges from 1-99, then restarts
 my $API_LINE_COUNT = 0; # for reporting
 my $STATION        = "EPLMNA"; # station performing the transactions, used in history record.
 my $DATE           = `date +%Y%m%d`;
-$DATE              = chomp $DATE;
+chomp $DATE;
 my $TIME           = `date +%H%M%S`;
-$TIME              = chomp $TIME;
+chomp $TIME;
 
 #
 # Message about this program and how to use it.
@@ -119,6 +120,7 @@ sub dischargeItem( $$ )
 	# Two-character data code
 	# Zero or more characters of data
 	my $itemId        = shift;
+	chomp $itemId;
 	my $dischargeDate = shift;
 	my $transactionRequestLine = "";
 	$TRX_NUM++;
@@ -174,32 +176,31 @@ sub getHistoryFormattedDate( $ )
 }
 
 init();
-open API, ">$REQUEST_FILE" or die "Error opening '$REQUEST_FILE': $!\n";
 open LOG, ">$RESPONSE_FILE" or die "Error opening '$RESPONSE_FILE': $!\n";
 my $today = getHistoryFormattedDate( $DATE );
 while (<>)
 {
 	# Clean the line of additional piped values if any. 
-	my $itemId = `echo "$_" | pipe.pl -o"c0" -t"c0"`; 
+	my $itemId = $_;
+	chomp $itemId;
+	$itemId = `echo "$_" | pipe.pl -o"c0" -t"c0"`;
+	chomp $itemId;
 	print LOG "discharging: $itemId\n";
 	# Item id always comes with a lot of white space on the end from the API so trim it off now.
 	# The next two commands discharges the item from the account.
-	print API dischargeItem( $itemId, $today );
+	my $api = dischargeItem( $itemId, $today );
+	chomp $api;
+	print LOG "'$api'\n";
+	# exit 1;
 	$API_LINE_COUNT++;
 	if ( $opt{'U'} )
 	{
+		`echo "$api" | apiserver -h >>$RESPONSE_FILE`; # -e will output the errors but clobber other transactions from today.
 		# For some unexplained reason the station library in Hist shows the specified library but selitem reports no change. 
 		# Reset them now edititem -y"EPLWHP"
 		`echo "$itemId" | selitem -iB | edititem -y"$STATION"`;
 	}
 }
 close LOG;
-close API;
 print "Total items: $API_LINE_COUNT\n";
-
-# Run the API server commands.
-if ( $opt{'U'} )
-{
-	`apiserver -h <$REQUEST_FILE >>$RESPONSE_FILE` if ( -s $REQUEST_FILE );
-}
 # EOF
