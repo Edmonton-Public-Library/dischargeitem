@@ -25,6 +25,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Thu Jul 3 11:15:37 MDT 2014
 # Rev:  
+#          0.7 - Code cleanup. 
 #          0.6 - Fix with edititem, requires item by item apiserver. 
 #          0.4 - Bug shows station library in history but items don't show in 
 #                selitem. Fix with edititem. 
@@ -48,7 +49,7 @@ use Getopt::Std;
 $ENV{'PATH'}  = qq{:/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/usr/bin:/usr/sbin};
 $ENV{'UPATH'} = qq{/s/sirsi/Unicorn/Config/upath};
 #######################################################################################
-my $VERSION            = qq{0.6};
+my $VERSION            = qq{0.7};
 chomp( my $TEMP_DIR    = `getpathname tmp` );
 my $HOME_DIR         = qq{$TEMP_DIR};
 # my $HOME_DIR           = qq{.};
