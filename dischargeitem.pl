@@ -25,7 +25,7 @@
 # Author:  Andrew Nisbet, Edmonton Public Library
 # Created: Thu Jul 3 11:15:37 MDT 2014
 # Rev:  
-#          0.5 - Fix with edititem, requires item by item apiserver. TODO fix. 
+#          0.6 - Fix with edititem, requires item by item apiserver. 
 #          0.4 - Bug shows station library in history but items don't show in 
 #                selitem. Fix with edititem. 
 #          0.3 - Add -s switch to change station library for default of EPLMNA. 
@@ -49,8 +49,9 @@ $ENV{'PATH'}  = qq{:/s/sirsi/Unicorn/Bincustom:/s/sirsi/Unicorn/Bin:/usr/bin:/us
 $ENV{'UPATH'} = qq{/s/sirsi/Unicorn/Config/upath};
 #######################################################################################
 my $VERSION            = qq{0.6};
-# my $HOME_DIR         = qq{.}; # Test
-my $HOME_DIR           = qq{/s/sirsi/Unicorn/EPLwork/Dischargeitem};
+chomp( my $TEMP_DIR    = `getpathname tmp` );
+# my $HOME_DIR         = qq{$TEMP_DIR};
+my $HOME_DIR           = qq{.};
 my $REQUEST_FILE       = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
 my $RESPONSE_FILE      = qq{$HOME_DIR/D_ITEM_TXRS.log};
 my $TRX_NUM            = 1; # Transaction number ranges from 1-99, then restarts
@@ -61,7 +62,6 @@ chomp( my $TIME        = `date +%H%M%S` );
 my @CLEAN_UP_FILE_LIST = (); # List of file names that will be deleted at the end of the script if ! '-t'.
 chomp( my $BINCUSTOM   = `getpathname bincustom` );
 my $PIPE               = "$BINCUSTOM/pipe.pl";
-chomp( my $TEMP_DIR    = `getpathname tmp` );
 
 #
 # Message about this program and how to use it.
@@ -70,15 +70,14 @@ sub usage()
 {
     print STDERR << "EOF";
 
-	usage: echo <itemID> | $0 [-LSUx] [-s<STATION>]
+	usage: echo <itemID> | $0 [-LUx] [-s<STATION>]
 Usage notes for $0.pl.
 This script discharges items received on standard in as bar codes.
 
- -L     : Determine item library.
+ -L     : Change the item library to the call number after discharge.
  -s[LIB]: Change the station library from the default 'EPLMNA'.
- -S     : Determine station library dynamically. Mimics staff discharging the item at a branch.
-          This will determine each item's current library then discharge the item 'at that library'.
- -U     : Actually do the update, otherwise it will output the files it would have run with APIserver.
+ -U     : Actually do the update, otherwise it will output the files it would
+          have run with APIserver.
  -x     : This (help) message.
 
 example: $0 -x
@@ -86,6 +85,7 @@ example: cat items.lst | $0 -U
 example: echo 31221012345678 | $0
 example: echo 31221012345678 | $0 -U
 example: echo 31221012345678 | $0 -s"EPLWHP" -U
+example: echo 31221012345678 | $0 -LU
 Version: $VERSION
 EOF
     exit;
@@ -96,51 +96,10 @@ EOF
 # return: 
 sub init
 {
-    my $opt_string = 'Ls:StUx';
+    my $opt_string = 'Ls:Ux';
     getopts( "$opt_string", \%opt ) or usage();
     usage() if ( $opt{'x'} );
 	$STATION = $opt{'s'} if ( $opt{'s'} );
-}
-
-# Writes data to a temp file and returns the name of the file with path.
-# param:  unique name of temp file, like master_list, or 'hold_keys'.
-# param:  data to write to file.
-# return: name of the file that contains the list.
-sub create_tmp_file( $$ )
-{
-	my $name    = shift;
-	my $results = shift;
-	my $sequence= sprintf "%02d", scalar @CLEAN_UP_FILE_LIST;
-	my $master_file = "$TEMP_DIR/$name.$sequence.$DATE.$TIME"; 
-	# Return just the file name if there are no results to report.
-	return $master_file if ( ! $results );
-	open FH, ">$master_file" or die "*** error opening '$master_file', $!\n";
-	print FH $results;
-	close FH;
-	# Add it to the list of files to clean if required at the end.
-	push @CLEAN_UP_FILE_LIST, $master_file;
-	return $master_file;
-}
-
-# Removes all the temp files created during running of the script.
-# param:  List of all the file names to clean up.
-# return: <none>
-sub clean_up
-{
-	foreach my $file ( @CLEAN_UP_FILE_LIST )
-	{
-		if ( $opt{'t'} )
-		{
-			printf STDERR "preserving file '%s' for review.\n", $file;
-		}
-		else
-		{
-			if ( -e $file )
-			{
-				unlink $file;
-			}
-		}
-	}
 }
 
 # This function checks items off of a card via API server transactions.
@@ -272,15 +231,16 @@ sub getLibraryCode( $ )
 	}
 	elsif ( $opt{'L'} )
 	{
-		chomp( $libraryCode = `echo "$itemId" | selitem -iB 2>/dev/null | selcharge -iI -tACTIVE -oy 2>/dev/null` );
+		chomp( $libraryCode = `echo "$itemId" | selitem -iB 2>/dev/null | selcallnum -iK -oy 2>/dev/null | pipe.pl -oc0` );
 	}
 	return $libraryCode;
 }
 
 init();
 open LOG, ">$RESPONSE_FILE" or die "Error opening '$RESPONSE_FILE': $!\n";
-open API, ">$REQUEST_FILE" or die "Error opening '$REQUEST_FILE': $!\n";
+open API, ">$REQUEST_FILE"  or die "Error opening '$REQUEST_FILE': $!\n";
 chomp( my $today = `date +%m/%d/%Y` );
+my $item_count = 0;
 while (<>)
 {
 	# Clean the line of additional piped values if any. 
@@ -300,19 +260,20 @@ while (<>)
 	#   E201709151630351719R |S24IgFWSMTCHTLHL1|FEEPLLHL|FFSMTCHT|FcNONE|FDSIPCHK|dC6|NQ31221112795559|nNEPLLHL|Fv600000|Ok||O
 	# Old technique, we now use API server which will record these transactions.
 	# `echo "$itemId" | selitem -iB | edititem -y"$STATION"`;
-	chomp( my $change_item_lib_api = getChangeItemLibraryAPI( $itemId, getLibraryCode( $itemId ) ) );
-	printf LOG "'%s'\n", $change_item_lib_api;
-	printf API "%s\n",   $change_item_lib_api;
+	if ( $opt{'L'} )
+	{ 
+		chomp( my $change_item_lib_api = getChangeItemLibraryAPI( $itemId, getLibraryCode( $itemId ) ) );
+		printf LOG "'%s'\n", $change_item_lib_api;
+		printf API "%s\n",   $change_item_lib_api;
+	}
+	$item_count++;
 }
 close API;
 if ( $opt{'U'} )
 {
-	`cat "$REQUEST_FILE" | apiserver -h >>$RESPONSE_FILE`; # -e will output the errors but clobber other transactions from today.
+	`cat "$REQUEST_FILE" | apiserver -h >>$RESPONSE_FILE 2>/dev/null`; # -e will output the errors but clobber other transactions from today.
 }
-chomp( $API_LINE_COUNT = `cat "$REQUEST_FILE" | wc -l | pipe.pl -tc0` );
-printf "Total items: %d\n", $API_LINE_COUNT;
-printf LOG "Total items: %d\n", $API_LINE_COUNT;
+printf "Total items: %d\n", $item_count;
+printf LOG "Total items: %d\n", $item_count;
 close LOG;
-# Clean up.
-clean_up();
 # EOF
