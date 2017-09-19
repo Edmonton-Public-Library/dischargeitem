@@ -37,6 +37,5 @@ test:
 	perl -c ${APP}
 	scp ${LOCAL}${APP} ${USER}@${TEST_SERVER}:${REMOTE}
 production: test
-	scp ${LOCAL}${APP} ${USER}@${TEST_SERVER}:${REMOTE}
 	scp ${LOCAL}${APP} ${USER}@${PRODUCTION_SERVER}:${REMOTE}
 
