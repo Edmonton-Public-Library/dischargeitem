@@ -50,8 +50,8 @@ $ENV{'UPATH'} = qq{/s/sirsi/Unicorn/Config/upath};
 #######################################################################################
 my $VERSION            = qq{0.6};
 chomp( my $TEMP_DIR    = `getpathname tmp` );
-# my $HOME_DIR         = qq{$TEMP_DIR};
-my $HOME_DIR           = qq{.};
+my $HOME_DIR         = qq{$TEMP_DIR};
+# my $HOME_DIR           = qq{.};
 my $REQUEST_FILE       = qq{$HOME_DIR/D_ITEM_TXRQ.cmd};
 my $RESPONSE_FILE      = qq{$HOME_DIR/D_ITEM_TXRS.log};
 my $TRX_NUM            = 1; # Transaction number ranges from 1-99, then restarts
@@ -59,9 +59,6 @@ my $API_LINE_COUNT     = 0; # for reporting
 my $STATION            = "EPLMNA"; # station performing the transactions, used in history record.
 chomp( my $DATE        = `date +%Y%m%d` );
 chomp( my $TIME        = `date +%H%M%S` );
-my @CLEAN_UP_FILE_LIST = (); # List of file names that will be deleted at the end of the script if ! '-t'.
-chomp( my $BINCUSTOM   = `getpathname bincustom` );
-my $PIPE               = "$BINCUSTOM/pipe.pl";
 
 #
 # Message about this program and how to use it.
